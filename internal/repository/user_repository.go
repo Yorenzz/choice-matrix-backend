@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"choice-matrix-backend/internal/models"
 
 	"gorm.io/gorm"
@@ -34,4 +36,16 @@ func (r *UserRepository) FindByID(id uint) (*models.User, error) {
 		return nil, result.Error
 	}
 	return &user, nil
+}
+
+func (r *UserRepository) UpdateLoginProfile(userID uint, loginAt time.Time, loginIP, countryCode, regionName, cityName string) error {
+	return r.db.Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]any{
+			"last_login_at": loginAt,
+			"last_login_ip": loginIP,
+			"country_code":  countryCode,
+			"region_name":   regionName,
+			"city_name":     cityName,
+		}).Error
 }

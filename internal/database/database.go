@@ -13,17 +13,22 @@ import (
 
 var DB *gorm.DB
 
-func ConnectDB(cfg config.Config) {
+func ConnectDB(cfg config.Config) error {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
 		cfg.DBHost, cfg.DBUser, cfg.DBPass, cfg.DBName, cfg.DBPort)
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	log.Println("Database connection successfully opened")
+
+	if cfg.SkipAutoMigrate {
+		log.Println("SKIP_AUTO_MIGRATE is enabled, auto migration is skipped")
+		return nil
+	}
 
 	// Auto-migrate models
 	err = DB.AutoMigrate(
@@ -35,7 +40,8 @@ func ConnectDB(cfg config.Config) {
 		&models.Cell{},
 	)
 	if err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 	log.Println("Database migration completed")
+	return nil
 }

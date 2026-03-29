@@ -27,10 +27,10 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
-		claims, err := utils.ParseToken(tokenString)
+		claims, err := utils.ParseAccessToken(tokenString)
 		if err != nil {
 			log.Printf("Token parsing error: %v", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "访问令牌无效或已过期"})
 			c.Abort()
 			return
 		}
