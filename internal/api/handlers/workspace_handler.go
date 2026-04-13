@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"choice-matrix-backend/internal/models"
 	"choice-matrix-backend/internal/repository"
@@ -27,7 +28,7 @@ func (h *WorkspaceHandler) CreateFolder(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	var req CreateFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -37,59 +38,113 @@ func (h *WorkspaceHandler) CreateFolder(c *gin.Context) {
 	}
 
 	if err := h.repo.CreateFolder(folder); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create folder"})
+		respondError(c, http.StatusInternalServerError, "Failed to create folder")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"data": folder})
+	respondSuccess(c, http.StatusCreated, folder, "Folder created")
 }
 
 func (h *WorkspaceHandler) GetFolders(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	folders, err := h.repo.GetFoldersByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch folders"})
+		respondError(c, http.StatusInternalServerError, "Failed to fetch folders")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": folders})
+	respondSuccess(c, http.StatusOK, folders, "Folders fetched")
 }
 
 // Projects
 type CreateProjectRequest struct {
-	Title    string `json:"title" binding:"required"`
-	FolderID *uint  `json:"folder_id"`
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	FolderID    *uint  `json:"folder_id"`
+	IsFavorite  bool   `json:"is_favorite"`
 }
 
 func (h *WorkspaceHandler) CreateProject(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	var req CreateProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	now := time.Now()
+
 	project := &models.Project{
-		UserID:   userID,
-		Title:    req.Title,
-		FolderID: req.FolderID,
+		UserID:       userID,
+		Title:        req.Title,
+		Description:  req.Description,
+		FolderID:     req.FolderID,
+		IsFavorite:   req.IsFavorite,
+		LastOpenedAt: &now,
 	}
 
 	if err := h.repo.CreateProject(project); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
+		respondError(c, http.StatusInternalServerError, "Failed to create project")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"data": project})
+	respondSuccess(c, http.StatusCreated, project, "Project created")
 }
 
 func (h *WorkspaceHandler) GetProjects(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	projects, err := h.repo.GetProjectsByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
+		respondError(c, http.StatusInternalServerError, "Failed to fetch projects")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": projects})
+	respondSuccess(c, http.StatusOK, projects, "Projects fetched")
+}
+
+type UpdateProjectRequest struct {
+	Title        string     `json:"title" binding:"required"`
+	Description  string     `json:"description"`
+	FolderID     *uint      `json:"folder_id"`
+	IsFavorite   bool       `json:"is_favorite"`
+	LastOpenedAt *time.Time `json:"last_opened_at"`
+	ShareToken   *string    `json:"share_token"`
+}
+
+func (h *WorkspaceHandler) UpdateProject(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req UpdateProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	fields := map[string]any{
+		"title":          req.Title,
+		"description":    req.Description,
+		"folder_id":      req.FolderID,
+		"is_favorite":    req.IsFavorite,
+		"last_opened_at": req.LastOpenedAt,
+		"share_token":    req.ShareToken,
+	}
+
+	if err := h.repo.UpdateProjectFields(uint(id), userID, fields); err != nil {
+		respondError(c, http.StatusInternalServerError, "Failed to update project")
+		return
+	}
+
+	project, err := h.repo.GetProjectByID(uint(id), userID)
+	if err != nil {
+		respondError(c, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	respondSuccess(c, http.StatusOK, project, "Project updated")
 }
 
 func (h *WorkspaceHandler) GetProjectDetails(c *gin.Context) {
@@ -97,17 +152,32 @@ func (h *WorkspaceHandler) GetProjectDetails(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		respondError(c, http.StatusBadRequest, "Invalid ID")
 		return
 	}
 
 	project, err := h.repo.GetProjectByID(uint(id), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		respondError(c, http.StatusNotFound, "Project not found")
 		return
 	}
 
-	// TODO: Fetch matrix data (rows, columns, cells) for this project
+	respondSuccess(c, http.StatusOK, project, "Project fetched")
+}
 
-	c.JSON(http.StatusOK, gin.H{"data": project})
+func (h *WorkspaceHandler) DeleteProject(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := h.repo.DeleteProject(uint(id), userID); err != nil {
+		respondError(c, http.StatusInternalServerError, "Failed to delete project")
+		return
+	}
+
+	respondSuccess(c, http.StatusOK, gin.H{"id": uint(id)}, "Project deleted")
 }

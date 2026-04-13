@@ -56,11 +56,18 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, acces
 			protected.POST("/folders", workspaceHandler.CreateFolder)
 			protected.GET("/projects", workspaceHandler.GetProjects)
 			protected.POST("/projects", workspaceHandler.CreateProject)
+			protected.GET("/projects/:id", workspaceHandler.GetProjectDetails)
+			protected.PUT("/projects/:id", workspaceHandler.UpdateProject)
+			protected.DELETE("/projects/:id", workspaceHandler.DeleteProject)
 
 			protected.GET("/projects/:id/payload", matrixHandler.GetProjectPayload)
 			protected.POST("/projects/:id/rows", matrixHandler.CreateRow)
+			protected.PUT("/projects/:id/rows/:rowId", matrixHandler.UpdateRow)
+			protected.DELETE("/projects/:id/rows/:rowId", matrixHandler.DeleteRow)
 			protected.PUT("/projects/:id/rows/reorder", matrixHandler.ReorderRows)
 			protected.POST("/projects/:id/columns", matrixHandler.CreateColumn)
+			protected.PUT("/projects/:id/columns/:columnId", matrixHandler.UpdateColumn)
+			protected.DELETE("/projects/:id/columns/:columnId", matrixHandler.DeleteColumn)
 			protected.PUT("/projects/:id/columns/reorder", matrixHandler.ReorderColumns)
 			protected.PUT("/projects/:id/cells", matrixHandler.UpsertCell)
 
