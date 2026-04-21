@@ -21,7 +21,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, acces
 	authHandler := handlers.NewAuthHandler(userRepo, refreshStore, accessTokenTTL, refreshTokenTTL)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceRepo)
 	matrixHandler := handlers.NewMatrixHandler(matrixRepo, workspaceRepo)
-	aiHandler := handlers.NewAIHandler()
+	aiHandler := handlers.NewAIHandler(workspaceRepo, matrixRepo)
 
 	api := r.Group("/api/v1")
 	{
